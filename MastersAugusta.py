@@ -5,11 +5,17 @@ Created on Thu Apr 12 13:07:38 2018
 @author: Pablo Aguilar
 """
 
-import matplotlib.pylab as plt
-import numpy as np
 import pandas as pd
-import sklearn as sk
+import numpy as np
+
+from sklearn import model_selection
+from sklearn.metrics import accuracy_score, roc_auc_score, recall_score
+from sklearn.model_selection import GridSearchCV
+
+from xgboost.sklearn import XGBClassifier
 import xgboost as xgb
+
+import matplotlib.pylab as plt
 
 
 def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
@@ -31,7 +37,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
     gsearch1 = GridSearchCV(estimator=initial_xgb_model, param_grid=param_test1,
                             scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
     gsearch1.fit(X_train, Y_train)
-    gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
+    gsearch1.cv_results_, gsearch1.best_params_, gsearch1.best_score_
 
     if (gsearch1.best_params_['max_depth'] == max(param_test1['max_depth'])):
         print("Iteration 2: Parameters to test: \n")
@@ -42,7 +48,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
         gsearch1 = GridSearchCV(estimator=gsearch1.best_estimator_, param_grid=param_test2,
                                 scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
         gsearch1.fit(X_train, Y_train)
-        gsearch1.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
+        gsearch1.cv_results_, gsearch1.best_params_, gsearch1.best_score_
 
     print("Iteration 3: Parameters to test: \n")
     param_test3 = {
@@ -56,7 +62,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
     gsearch2 = GridSearchCV(estimator=gsearch1.best_estimator_, param_grid=param_test3,
                             scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
     gsearch2.fit(X_train, Y_train)
-    gsearch2.grid_scores_, gsearch2.best_params_, gsearch2.best_score_
+    gsearch2.cv_results_, gsearch2.best_params_, gsearch2.best_score_
 
     if (gsearch2.best_params_['min_child_weight'] == max(param_test3['min_child_weight'])):
         print("Iteration 4: Parameters to test: \n")
@@ -68,7 +74,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
         gsearch2 = GridSearchCV(estimator=gsearch2.best_estimator_, param_grid=param_test4,
                                 scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
         gsearch2.fit(X_train, Y_train)
-        gsearch2.grid_scores_, gsearch1.best_params_, gsearch1.best_score_
+        gsearch2.cv_results_, gsearch1.best_params_, gsearch1.best_score_
 
     print("About to optimize parameters: Gamma\n")
     print("Iteration 1: Parameters to test: \n")
@@ -80,7 +86,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
     gsearch3 = GridSearchCV(estimator=gsearch2.best_estimator_, param_grid=param_test5,
                             scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
     gsearch3.fit(X_train, Y_train)
-    gsearch3.grid_scores_, gsearch3.best_params_, gsearch3.best_score_
+    gsearch3.cv_results_, gsearch3.best_params_, gsearch3.best_score_
 
     print("About to optimize parameters: Subsample & Colsample_bytree\n")
     print("Iteration 1: Parameters to test: \n")
@@ -93,7 +99,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
     gsearch4 = GridSearchCV(estimator=gsearch3.best_estimator_, param_grid=param_test6,
                             scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
     gsearch4.fit(X_train, Y_train)
-    gsearch4.grid_scores_, gsearch4.best_params_, gsearch4.best_score_
+    gsearch4.cv_results_, gsearch4.best_params_, gsearch4.best_score_
 
     print("About to optimize parameters: Reg Alpha\n")
     print("Iteration 1: Parameters to test: \n")
@@ -103,7 +109,7 @@ def xgb_parameter_optimizer(X_train, Y_train, initial_xgb_model):
     gsearch5 = GridSearchCV(estimator=gsearch4.best_estimator_, param_grid=param_test7,
                             scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
     gsearch5.fit(X_train, Y_train)
-    gsearch5.grid_scores_, gsearch5.best_params_, gsearch5.best_score_
+    gsearch5.cv_results_, gsearch5.best_params_, gsearch5.best_score_
 
     return gsearch5
 
@@ -241,10 +247,8 @@ parent_dir = 'N:\\_Intercambio\\PabloAguilar\\MastersAugusta\\'
 
 df_masters_dates = pd.read_csv(filepath_or_buffer=parent_dir + 'Masters_Augusta_All_Rounds_Dates.csv', sep=';')
 
-df_all_scorecards_20 = pd.read_csv(filepath_or_buffer=parent_dir + 'Masters_Augusta_All_Scorecards_Bio_1937_2018.csv',
-                                   sep=';')
-df_augusta_weather = pd.read_csv(filepath_or_buffer=parent_dir + 'Masters_Augusta_All_Rounds_Weather_2000_2018.csv',
-                                 sep=';')
+df_all_scorecards_20 = pd.read_csv(filepath_or_buffer=parent_dir + 'Masters_Augusta_All_Scorecards_Bio_1937_2018.csv', sep=';')
+df_augusta_weather = pd.read_csv(filepath_or_buffer=parent_dir + 'Masters_Augusta_All_Rounds_Weather_2000_2018.csv', sep=';')
 
 df_all_scorecards_20 = df_all_scorecards_20.merge(right=df_masters_dates, on=["Year", "Round"], how='inner')
 
@@ -287,7 +291,7 @@ df_masters_final = df_all_scorecards_agg.merge(right=df_all_scorecards_target, h
 df_masters_final = df_masters_final.merge(right=df_augusta_weather, on="Date", how="left")
 
 seed = 7
-initial_xgb_model = XGBClassifier(seed=seed)
+initial_xgb_model = XGBClassifier(seed=seed, n_estimators=15)
 
 initial_xgb_model = XGBClassifier(base_score=0.5, booster='gbtree', colsample_bylevel=1,
                                   colsample_bytree=0.7, gamma=0.4, learning_rate=0.01,
